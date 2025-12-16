@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blocktrails Hue Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      transition: background-color 0.5s ease;
+      background-color: hsl(0, 0%, 20%);
+      color: white;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 1rem;
+      backdrop-filter: blur(10px);
+      max-width: 90vw;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 300;
+    }
+    .hue-value {
+      font-size: 6rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .status {
+      margin-top: 1rem;
+      font-size: 0.875rem;
+      opacity: 0.8;
+    }
+    .info {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      opacity: 0.6;
+      font-family: monospace;
+      word-break: break-all;
+      max-width: 400px;
+    }
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+    .dot.connected { background: #4ade80; }
+    .dot.disconnected { background: #f87171; }
+    .dot.connecting { background: #fbbf24; animation: pulse 1s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .help {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      opacity: 0.5;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Blocktrails</h1>
+    <div class="hue-value" id="hue">---</div>
+    <div class="status">
+      <span class="dot connecting" id="dot"></span>
+      <span id="status">Connecting...</span>
+    </div>
+    <div class="info" id="info"></div>
+  </div>
+  <div class="help">
+    ?relay=wss://...&pubkey=...
+  </div>
+
+  <script>
+    // Parse URL params
+    const params = new URLSearchParams(window.location.search);
+    const relay = params.get('relay') || 'wss://relay.damus.io';
+    const filterPubkey = params.get('pubkey');
+
+    const hueEl = document.getElementById('hue');
+    const statusEl = document.getElementById('status');
+    const dotEl = document.getElementById('dot');
+    const infoEl = document.getElementById('info');
+
+    let ws;
+    let reconnectTimeout;
+
+    function setStatus(text, state) {
+      statusEl.textContent = text;
+      dotEl.className = 'dot ' + state;
+    }
+
+    function setHue(hue) {
+      const h = Math.max(0, Math.min(360, parseInt(hue) || 0));
+      hueEl.textContent = h;
+      document.body.style.backgroundColor = `hsl(${h}, 70%, 50%)`;
+    }
+
+    function connect() {
+      setStatus('Connecting...', 'connecting');
+
+      try {
+        ws = new WebSocket(relay);
+      } catch (e) {
+        setStatus('Invalid relay URL', 'disconnected');
+        return;
+      }
+
+      ws.onopen = () => {
+        setStatus('Connected to ' + relay, 'connected');
+
+        // Subscribe to blocktrail events (kind 30333)
+        const filter = { kinds: [30333], '#t': ['blocktrail'] };
+        if (filterPubkey) {
+          filter.authors = [filterPubkey];
+        }
+
+        const sub = ['REQ', 'blocktrails', filter];
+        ws.send(JSON.stringify(sub));
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+
+          if (msg[0] === 'EVENT' && msg[2]) {
+            const event = msg[2];
+            handleEvent(event);
+          } else if (msg[0] === 'EOSE') {
+            // End of stored events
+            infoEl.textContent += '\nSubscribed, waiting for updates...';
+          }
+        } catch (err) {
+          console.error('Parse error:', err);
+        }
+      };
+
+      ws.onclose = () => {
+        setStatus('Disconnected', 'disconnected');
+        // Reconnect after 3 seconds
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        setStatus('Connection error', 'disconnected');
+      };
+    }
+
+    function handleEvent(event) {
+      try {
+        const trail = JSON.parse(event.content);
+        const states = trail.states || [];
+        const latestState = states[states.length - 1];
+
+        // Try to parse state as number (hue)
+        let hue = 0;
+        if (latestState !== undefined) {
+          // Try JSON parse first (might be a number in JSON)
+          try {
+            hue = JSON.parse(latestState);
+          } catch {
+            hue = parseInt(latestState) || 0;
+          }
+        }
+
+        setHue(hue);
+
+        // Update info
+        const pubkey = event.pubkey.slice(0, 8) + '...' + event.pubkey.slice(-4);
+        const time = new Date(event.created_at * 1000).toLocaleTimeString();
+        infoEl.innerHTML = `
+          pubkey: ${pubkey}<br>
+          states: ${states.length}<br>
+          network: ${trail.network || 'unknown'}<br>
+          updated: ${time}
+        `;
+
+        setStatus('Receiving updates', 'connected');
+      } catch (err) {
+        console.error('Event parse error:', err);
+      }
+    }
+
+    // Start connection
+    connect();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      clearTimeout(reconnectTimeout);
+      if (ws) ws.close();
+    });
+  </script>
+</body>
+</html>
