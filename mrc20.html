@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MRC20 Tokens</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      color: rgba(255,255,255,0.9);
+      min-height: 100vh;
+    }
+    .v-top { padding: 10px 16px; }
+    .v-top a { font: 600 .85em/1 -apple-system, sans-serif; color: rgba(255,255,255,0.5); text-decoration: none; }
+    .v-wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 40px; }
+    .v-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .v-title { font-size: 1.5em; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .v-net { font-size: 0.6em; padding: 4px 10px; border-radius: 6px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3); color: #fbbf24; font-weight: 600; letter-spacing: 0.04em; }
+
+    /* Balance hero */
+    .v-hero { text-align: center; padding: 32px 0 28px; }
+    .v-hero-label { font-size: 0.78rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .v-hero-sats { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.02em; }
+    .v-hero-btc { font-size: 0.95rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+
+    /* Cards */
+    .v-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 24px; margin-bottom: 20px; backdrop-filter: blur(12px); }
+    .v-card h2 { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.9); margin: 0 0 16px; display: flex; align-items: center; justify-content: space-between; }
+
+    /* Stats */
+    .v-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .v-stat { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; text-align: center; }
+    .v-stat-val { font-size: 1.5rem; font-weight: 700; }
+    .v-stat-label { font-size: 0.7rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+    /* Import */
+    .v-import-row { display: flex; gap: 8px; }
+    .v-input { flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); font: 0.88rem -apple-system, sans-serif; outline: none; transition: border-color 0.15s; }
+    .v-input::placeholder { color: rgba(255,255,255,0.25); }
+    .v-input:focus { border-color: rgba(124,58,237,0.5); }
+
+    /* Buttons */
+    .v-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); font: 600 0.85rem -apple-system, sans-serif; cursor: pointer; transition: all 0.15s; }
+    .v-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); color: #fff; }
+    .v-btn-primary { background: linear-gradient(135deg, #7c3aed, #6d28d9); border-color: rgba(124,58,237,0.4); color: #fff; box-shadow: 0 4px 16px rgba(124,58,237,0.2); }
+    .v-btn-primary:hover { box-shadow: 0 6px 24px rgba(124,58,237,0.3); }
+    .v-btn-sm { padding: 5px 10px; font-size: 0.78rem; border-radius: 6px; }
+    .v-btn-icon { padding: 5px 8px; font-size: 0.82rem; border-radius: 6px; min-width: 30px; justify-content: center; }
+    .v-btn-danger { color: #ef4444; }
+    .v-btn-danger:hover { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
+
+    /* Voucher list */
+    .v-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; transition: background 0.15s; }
+    .v-item:hover { background: rgba(255,255,255,0.06); }
+    .v-item-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+    .v-item-amount { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .v-item-amount small { font-size: 0.7em; font-weight: 400; color: rgba(255,255,255,0.35); }
+    .v-item-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .v-item-details { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.82rem; }
+    .v-item-label { color: rgba(255,255,255,0.3); }
+    .v-item-val { color: rgba(255,255,255,0.6); font-family: 'SF Mono', 'Fira Code', monospace; word-break: break-all; cursor: pointer; }
+    .v-item-val:hover { color: rgba(255,255,255,0.9); }
+
+    /* Status badges */
+    .v-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; }
+    .v-badge-unspent { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #10b981; }
+    .v-badge-spent { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
+    .v-badge-unknown { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.35); }
+    .v-badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .v-badge-unspent .v-badge-dot { background: #10b981; }
+    .v-badge-spent .v-badge-dot { background: #ef4444; }
+    .v-badge-unknown .v-badge-dot { background: rgba(255,255,255,0.3); }
+    .v-badge-locked { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: #fbbf24; }
+    .v-badge-locked .v-badge-dot { background: #fbbf24; }
+
+    /* Masked key */
+    .v-masked { cursor: pointer; user-select: none; }
+    .v-masked::after { content: ' (click)'; font-size: 0.8em; color: rgba(255,255,255,0.2); }
+
+    /* Empty state */
+    .v-empty { text-align: center; padding: 32px; color: rgba(255,255,255,0.25); font-style: italic; }
+
+    /* Toast */
+    .v-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(16,185,129,0.9); color: #fff; padding: 8px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; z-index: 999; animation: v-fade 0.3s; }
+    @keyframes v-fade { from { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+
+    /* Spinner */
+    .v-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.15); border-top-color: #a78bfa; border-radius: 50%; animation: v-spin 0.6s linear infinite; display: inline-block; }
+    @keyframes v-spin { to { transform: rotate(360deg); } }
+
+    .v-help { font-size: 0.78rem; color: rgba(255,255,255,0.25); margin-top: 10px; line-height: 1.5; }
+    .v-help code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+
+    /* Token-specific */
+    .tk-ticker { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 5px; font-size: 0.72rem; font-weight: 700; background: rgba(236,72,153,0.12); border: 1px solid rgba(236,72,153,0.3); color: #ec4899; letter-spacing: 0.04em; }
+    .tk-seq { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 600; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #a78bfa; }
+    .tk-bal-row { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+    .tk-bal-addr { font-family: 'SF Mono', monospace; font-size: 0.72rem; color: rgba(255,255,255,0.35); cursor: pointer; }
+    .tk-bal-addr:hover { color: rgba(255,255,255,0.7); }
+    .tk-bal-amt { font-weight: 700; font-size: 0.88rem; color: rgba(255,255,255,0.8); }
+    .tk-op-type { padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+    .tk-op-mint { background: rgba(16,185,129,0.12); color: #10b981; }
+    .tk-op-transfer { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .tk-op-burn { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+    /* Blocktrails chain */
+    .bt-chain { padding: 0; margin: 8px 0 0; list-style: none; }
+    .bt-step { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.82rem; }
+    .bt-step:last-child { border-bottom: none; }
+    .bt-step-num { min-width: 24px; height: 24px; border-radius: 50%; background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.4); color: #a78bfa; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .bt-step-current .bt-step-num { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.4); color: #10b981; }
+    .bt-step-info { flex: 1; min-width: 0; }
+    .bt-step-state { font-weight: 600; color: rgba(255,255,255,0.8); word-break: break-all; }
+    .bt-step-addr { font-family: 'SF Mono', monospace; font-size: 0.75rem; color: rgba(255,255,255,0.35); word-break: break-all; cursor: pointer; }
+    .bt-step-addr:hover { color: rgba(255,255,255,0.7); }
+
+    /* Form grid */
+    .tk-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+
+    @media (max-width: 600px) {
+      .v-stats { grid-template-columns: 1fr; }
+      .v-hero-sats { font-size: 2rem; }
+      .v-import-row { flex-direction: column; }
+      .tk-form { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="v-top"><a href="./">&larr; Blocktrails</a></div>
+  <div class="v-wrap" id="app"></div>
+  <script type="module">
+import { parseTxoUri, isValidTxoUri, formatTxoUri } from 'https://esm.sh/txo_parser'
+import { secp256k1, schnorr } from 'https://esm.sh/@noble/curves@1.8.1/secp256k1'
+
+// ── Crypto helpers ──────────────────────────────────────
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+function b58decode(str) {
+  const bytes = []
+  for (const c of str) {
+    let carry = B58.indexOf(c)
+    if (carry < 0) throw new Error('Invalid base58 character: ' + c)
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58
+      bytes[j] = carry & 0xff
+      carry >>= 8
+    }
+    while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8 }
+  }
+  for (const c of str) { if (c === '1') bytes.push(0); else break }
+  return new Uint8Array(bytes.reverse())
+}
+
+async function sha256(data) {
+  const buf = data instanceof Uint8Array ? data : new TextEncoder().encode(data)
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', buf))
+}
+
+async function doubleSha256(data) {
+  return sha256(await sha256(data))
+}
+
+async function wifDecode(wif) {
+  const raw = b58decode(wif)
+  if (raw.length < 5) throw new Error('WIF too short')
+  const payload = raw.slice(0, -4)
+  const checksum = raw.slice(-4)
+  const hash = await doubleSha256(payload)
+  for (let i = 0; i < 4; i++) {
+    if (hash[i] !== checksum[i]) throw new Error('Invalid WIF checksum')
+  }
+  const version = payload[0]
+  const isTestnet = version === 0xef
+  const isMainnet = version === 0x80
+  if (!isTestnet && !isMainnet) throw new Error('Unknown WIF version: 0x' + version.toString(16))
+  const compressed = payload.length === 34 && payload[33] === 0x01
+  return { privkey: payload.slice(1, 33), compressed, testnet: isTestnet }
+}
+
+function hexToBytes(hex) {
+  if (hex.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(hex)) throw new Error('Invalid 64-char hex key')
+  const bytes = new Uint8Array(32)
+  for (let i = 0; i < 32; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  return bytes
+}
+
+function isHexKey(s) {
+  return s.length === 64 && /^[0-9a-fA-F]{64}$/.test(s)
+}
+
+async function decodeKey(input) {
+  if (isHexKey(input)) {
+    return { privkey: hexToBytes(input), compressed: true, testnet: true }
+  }
+  return wifDecode(input)
+}
+
+function privkeyToXOnly(privkeyBytes) {
+  const pub = secp256k1.getPublicKey(privkeyBytes, true)
+  return pub.slice(1)
+}
+
+// ── Bech32m (for p2tr addresses) ────────────────────────
+
+const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
+const BECH32M = 0x2bc830a3
+
+function polymod(values) {
+  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
+  let chk = 1
+  for (const v of values) {
+    const b = chk >> 25
+    chk = ((chk & 0x1ffffff) << 5) ^ v
+    for (let i = 0; i < 5; i++) if ((b >> i) & 1) chk ^= GEN[i]
+  }
+  return chk
+}
+
+function hrpExpand(hrp) {
+  const r = []
+  for (const c of hrp) r.push(c.charCodeAt(0) >> 5)
+  r.push(0)
+  for (const c of hrp) r.push(c.charCodeAt(0) & 31)
+  return r
+}
+
+function convertBits(data, from, to, pad) {
+  let acc = 0, bits = 0
+  const ret = [], maxv = (1 << to) - 1
+  for (const v of data) {
+    acc = (acc << from) | v
+    bits += from
+    while (bits >= to) { bits -= to; ret.push((acc >> bits) & maxv) }
+  }
+  if (pad && bits > 0) ret.push((acc << (to - bits)) & maxv)
+  return ret
+}
+
+function bech32mEncode(hrp, version, program) {
+  const conv = convertBits(program, 8, 5, true)
+  const values = [version, ...conv]
+  const enc = [...hrpExpand(hrp), ...values, 0, 0, 0, 0, 0, 0]
+  const mod = polymod(enc) ^ BECH32M
+  const checksum = [0,1,2,3,4,5].map(i => (mod >> (5 * (5 - i))) & 31)
+  let result = hrp + '1'
+  for (const v of [...values, ...checksum]) result += BECH32_CHARSET[v]
+  return result
+}
+
+function privkeyToAddress(privkeyBytes, testnet = true) {
+  const xonly = privkeyToXOnly(privkeyBytes)
+  return bech32mEncode(testnet ? 'tb' : 'bc', 1, xonly)
+}
+
+// ── Byte helpers ─────────────────────────────────────────
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function hexToU8(hex) {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  return bytes
+}
+
+function concatBytes(...arrays) {
+  const total = arrays.reduce((s, a) => s + a.length, 0)
+  const result = new Uint8Array(total)
+  let off = 0
+  for (const a of arrays) { result.set(a, off); off += a.length }
+  return result
+}
+
+// ── Tagged hash (BIP340/341) ─────────────────────────────
+
+async function taggedHash(tag, ...msgs) {
+  const tagHash = await sha256(new TextEncoder().encode(tag))
+  return sha256(concatBytes(tagHash, tagHash, ...msgs))
+}
+
+// ── Taproot key tweaking (BIP86) ─────────────────────────
+
+const SECP_N = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141')
+
+function bytesToBigInt(bytes) {
+  let r = 0n
+  for (const b of bytes) r = (r << 8n) | BigInt(b)
+  return r
+}
+
+function bigIntToBytes(n) {
+  const hex = n.toString(16).padStart(64, '0')
+  return hexToU8(hex)
+}
+
+async function getTweakedKeys(privkeyBytes) {
+  const xonly = privkeyToXOnly(privkeyBytes)
+  const tweak = await taggedHash('TapTweak', xonly)
+  const t = bytesToBigInt(tweak)
+  let d = bytesToBigInt(privkeyBytes)
+  const fullPub = secp256k1.getPublicKey(privkeyBytes, false)
+  if (fullPub[64] & 1) d = SECP_N - d
+  const tweakedD = (d + t) % SECP_N
+  const tweakedPriv = bigIntToBytes(tweakedD)
+  const tweakedXOnly = schnorr.getPublicKey(tweakedPriv)
+  return { tweakedPriv, tweakedXOnly, internalXOnly: xonly }
+}
+
+// ── P2TR script ──────────────────────────────────────────
+
+function p2trScript(xonlyPubkey) {
+  return concatBytes(new Uint8Array([0x51, 0x20]), xonlyPubkey)
+}
+
+// ── Transaction serialization ────────────────────────────
+
+function writeU32LE(val) {
+  const b = new Uint8Array(4)
+  b[0] = val & 0xff; b[1] = (val >> 8) & 0xff; b[2] = (val >> 16) & 0xff; b[3] = (val >> 24) & 0xff
+  return b
+}
+
+function writeU64LE(val) {
+  const b = new Uint8Array(8)
+  const n = BigInt(val)
+  for (let i = 0; i < 8; i++) b[i] = Number((n >> BigInt(i * 8)) & 0xffn)
+  return b
+}
+
+function writeVarInt(val) {
+  if (val < 0xfd) return new Uint8Array([val])
+  if (val <= 0xffff) return new Uint8Array([0xfd, val & 0xff, (val >> 8) & 0xff])
+  throw new Error('VarInt too large')
+}
+
+function reverseTxid(txidHex) {
+  const bytes = hexToU8(txidHex)
+  bytes.reverse()
+  return bytes
+}
+
+function estimateVsize(numInputs, numOutputs) {
+  return Math.ceil((42 + 230 * numInputs + 172 * numOutputs) / 4)
+}
+
+// ── Build & sign taproot transaction ─────────────────────
+
+async function buildTransaction(inputs, outputs, privkeyBytes) {
+  const internalXOnly = privkeyToXOnly(privkeyBytes)
+  const { tweakedPriv } = await getTweakedKeys(privkeyBytes)
+  const untweakedHex = '5120' + bytesToHex(internalXOnly)
+  const signingKey = bytesToHex(inputs[0].scriptPubKey) === untweakedHex ? privkeyBytes : tweakedPriv
+
+  const version = 2, locktime = 0, sequence = 0xfffffffd
+
+  const serOutputs = outputs.map(o =>
+    concatBytes(writeU64LE(o.amount), writeVarInt(o.scriptPubKey.length), o.scriptPubKey)
+  )
+
+  const shaPrevouts = await sha256(concatBytes(...inputs.map(i =>
+    concatBytes(reverseTxid(i.txid), writeU32LE(i.vout))
+  )))
+  const shaAmounts = await sha256(concatBytes(...inputs.map(i => writeU64LE(i.amount))))
+  const shaScriptPubKeys = await sha256(concatBytes(...inputs.map(i =>
+    concatBytes(writeVarInt(i.scriptPubKey.length), i.scriptPubKey)
+  )))
+  const shaSequences = await sha256(concatBytes(...inputs.map(() => writeU32LE(sequence))))
+  const shaOutputs = await sha256(concatBytes(...serOutputs))
+
+  const sigs = []
+  for (let i = 0; i < inputs.length; i++) {
+    const sigMsg = concatBytes(
+      new Uint8Array([0x00, 0x00]),
+      writeU32LE(version), writeU32LE(locktime),
+      shaPrevouts, shaAmounts, shaScriptPubKeys, shaSequences, shaOutputs,
+      new Uint8Array([0x00]),
+      writeU32LE(i)
+    )
+    const sighash = await taggedHash('TapSighash', sigMsg)
+    sigs.push(schnorr.sign(sighash, signingKey))
+  }
+
+  const parts = [
+    writeU32LE(version),
+    new Uint8Array([0x00, 0x01]),
+    writeVarInt(inputs.length)
+  ]
+  for (const inp of inputs) {
+    parts.push(reverseTxid(inp.txid), writeU32LE(inp.vout), new Uint8Array([0x00]), writeU32LE(sequence))
+  }
+  parts.push(writeVarInt(outputs.length))
+  for (const so of serOutputs) parts.push(so)
+  for (const sig of sigs) {
+    parts.push(new Uint8Array([0x01]), writeVarInt(sig.length), sig)
+  }
+  parts.push(writeU32LE(locktime))
+  return bytesToHex(concatBytes(...parts))
+}
+
+// ── Mempool API ─────────────────────────────────────────
+
+const MEMPOOL = 'https://mempool.space/testnet4/api'
+
+async function fetchUtxos(address) {
+  const res = await fetch(`${MEMPOOL}/address/${address}/utxo`)
+  if (!res.ok) throw new Error('Mempool API error: ' + res.status)
+  return res.json()
+}
+
+async function checkOutspend(txid, vout) {
+  try {
+    const res = await fetch(`${MEMPOOL}/tx/${txid}/outspend/${vout}`)
+    if (!res.ok) return null
+    return res.json()
+  } catch { return null }
+}
+
+async function fetchTxDetails(txid) {
+  const res = await fetch(`${MEMPOOL}/tx/${txid}`)
+  if (!res.ok) throw new Error('Failed to fetch tx: ' + res.status)
+  return res.json()
+}
+
+async function broadcastTx(rawTxHex) {
+  const res = await fetch(`${MEMPOOL}/tx`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: rawTxHex
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+  return res.text()
+}
+
+async function getFeeRate() {
+  try {
+    const res = await fetch(`${MEMPOOL}/v1/fees/recommended`)
+    if (!res.ok) return 2
+    const data = await res.json()
+    return data.fastestFee || data.halfHourFee || 2
+  } catch { return 2 }
+}
+
+// ── Storage (localStorage only) ─────────────────────────
+
+const VOUCHER_KEY = 'voucher-pool-testnet4'
+const TOKENS_KEY = 'mrc20-tokens-tbtc4'
+
+function loadVouchers() { try { return JSON.parse(localStorage.getItem(VOUCHER_KEY) || '[]') } catch { return [] } }
+function saveVouchers() { try { localStorage.setItem(VOUCHER_KEY, JSON.stringify(vouchers)) } catch {} }
+function loadTokens() { try { return JSON.parse(localStorage.getItem(TOKENS_KEY) || '[]') } catch { return [] } }
+function saveTokens() { try { localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens)) } catch {} }
+
+// ── State ───────────────────────────────────────────────
+
+let vouchers = []
+let tokens = []
+let importing = false
+let refreshing = false
+
+// ── Helpers ─────────────────────────────────────────────
+
+function truncate(s, start = 8, end = 6) {
+  if (!s || s.length <= start + end + 3) return s
+  return s.slice(0, start) + '...' + s.slice(-end)
+}
+
+function maskKey(wif) {
+  if (!wif || wif.length < 6) return '***'
+  return wif.slice(0, 3) + '...' + wif.slice(-3)
+}
+
+function satsBtc(sats) { return (sats / 1e8).toFixed(8) }
+
+function toSats(amount) {
+  if (!amount) return 0
+  if (Number.isInteger(amount) && amount >= 1) return amount
+  const converted = Math.round(amount * 1e8)
+  if (converted > 2_100_000_000_000_000) return Math.round(amount)
+  return converted
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function toast(msg) {
+  const t = document.createElement('div')
+  t.className = 'v-toast'
+  t.textContent = msg
+  document.body.appendChild(t)
+  setTimeout(() => t.remove(), 2000)
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard'))
+}
+
+function buildTxoUri(v) {
+  const base = `txo:btc:${v.txid}:${v.vout}`
+  const params = []
+  if (v.amount) params.push(`amount=${v.amount}`)
+  if (v.privkey) params.push(`key=${v.privkey}`)
+  return params.length ? `${base}?${params.join('&')}` : base
+}
+
+// ── JCS (JSON Canonicalization Scheme, RFC 8785) ─────────
+
+function jcs(obj) {
+  if (obj === null || typeof obj !== 'object') return JSON.stringify(obj)
+  if (Array.isArray(obj)) return '[' + obj.map(v => jcs(v)).join(',') + ']'
+  const keys = Object.keys(obj).sort()
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + jcs(obj[k])).join(',') + '}'
+}
+
+async function sha256Hex(data) {
+  const hash = await sha256(typeof data === 'string' ? new TextEncoder().encode(data) : data)
+  return bytesToHex(hash)
+}
+
+// ── Blocktrails: Key chaining (BIP-341) ─────────────────
+
+async function btScalar(pubkeyCompressed, state) {
+  const xOnly = pubkeyCompressed.slice(1)
+  const stateBytes = typeof state === 'string' ? new TextEncoder().encode(state) : state
+  const sh = await sha256(stateBytes)
+  return bytesToBigInt(await taggedHash('TapTweak', xOnly, sh)) % SECP_N
+}
+
+async function btDeriveChainedPubkey(pubkeyBase, states) {
+  let P = secp256k1.ProjectivePoint.fromHex(bytesToHex(pubkeyBase))
+  let cur = pubkeyBase
+  for (const s of states) {
+    const t = await btScalar(cur, s)
+    P = P.add(secp256k1.ProjectivePoint.BASE.multiply(t))
+    cur = P.toRawBytes(true)
+  }
+  return cur
+}
+
+async function btDeriveChainedPrivkey(privkeyBytes, states) {
+  let d = bytesToBigInt(privkeyBytes)
+  let cur = secp256k1.getPublicKey(privkeyBytes, true)
+  for (const s of states) {
+    const t = await btScalar(cur, s)
+    d = (d + t) % SECP_N
+    cur = secp256k1.ProjectivePoint.BASE.multiply(d).toRawBytes(true)
+  }
+  return bigIntToBytes(d)
+}
+
+function btXonly(pubkeyCompressed) { return pubkeyCompressed.slice(1) }
+
+async function btAddress(pubkeyBase, states) {
+  const P = await btDeriveChainedPubkey(pubkeyBase, states)
+  return bech32mEncode('tb', 1, btXonly(P))
+}
+
+// ── MRC20: State management ─────────────────────────────
+
+const MRC20_PROFILE = 'mono.mrc20.v0.1'
+const ZERO_PREV = '0'.repeat(64)
+
+function makeGenesisState(name, ticker, decimals) {
+  return {
+    balances: {},
+    decimals,
+    name,
+    ops: [],
+    prev: ZERO_PREV,
+    profile: MRC20_PROFILE,
+    seq: 0,
+    supply: 0,
+    ticker
+  }
+}
+
+function applyOps(prevState, ops) {
+  const balances = { ...prevState.balances }
+  let supply = prevState.supply
+
+  for (const op of ops) {
+    switch (op.op) {
+      case 'urn:mono:op:mint': {
+        if (op.amt <= 0 || op.amt > Number.MAX_SAFE_INTEGER) throw new Error('Invalid mint amount')
+        balances[op.to] = (balances[op.to] || 0) + op.amt
+        supply += op.amt
+        if (supply > Number.MAX_SAFE_INTEGER) throw new Error('Supply overflow')
+        break
+      }
+      case 'urn:mono:op:transfer': {
+        if (op.amt <= 0) throw new Error('Invalid transfer amount')
+        if ((balances[op.from] || 0) < op.amt) throw new Error(`Insufficient balance for ${op.from}`)
+        balances[op.from] -= op.amt
+        if (balances[op.from] === 0) delete balances[op.from]
+        balances[op.to] = (balances[op.to] || 0) + op.amt
+        break
+      }
+      case 'urn:mono:op:burn': {
+        if (op.amt <= 0) throw new Error('Invalid burn amount')
+        if ((balances[op.from] || 0) < op.amt) throw new Error(`Insufficient balance for ${op.from}`)
+        balances[op.from] -= op.amt
+        if (balances[op.from] === 0) delete balances[op.from]
+        supply -= op.amt
+        break
+      }
+      default:
+        throw new Error('Unknown op: ' + op.op)
+    }
+  }
+
+  return { balances, supply }
+}
+
+async function nextState(prevState, ops) {
+  const { balances, supply } = applyOps(prevState, ops)
+  const prevJcs = jcs(prevState)
+  const prev = await sha256Hex(prevJcs)
+  return {
+    balances,
+    decimals: prevState.decimals,
+    name: prevState.name,
+    ops,
+    prev,
+    profile: MRC20_PROFILE,
+    seq: prevState.seq + 1,
+    supply,
+    ticker: prevState.ticker
+  }
+}
+
+function formatTokenAmount(amt, decimals) {
+  if (decimals === 0) return amt.toLocaleString()
+  const str = amt.toString().padStart(decimals + 1, '0')
+  const int = str.slice(0, -decimals)
+  const frac = str.slice(-decimals).replace(/0+$/, '')
+  return (int || '0').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (frac ? '.' + frac : '')
+}
+
+// ── Import voucher ──────────────────────────────────────
+
+async function importKey(input) {
+  input = input.trim()
+  if (!input) return
+
+  if (input.startsWith('txo:') || isValidTxoUri(input)) {
+    try {
+      const parsed = parseTxoUri(input)
+      const exists = vouchers.some(v => v.txid === parsed.txid && v.vout === parsed.output)
+      if (exists) { toast('Voucher already in pool'); return }
+      const v = {
+        id: Date.now().toString(36),
+        txid: parsed.txid, vout: parsed.output,
+        amount: toSats(parsed.amount), privkey: parsed.privkey || '',
+        address: '', network: 'btc', status: 'unknown',
+        dateAdded: new Date().toISOString()
+      }
+      if (v.privkey) {
+        try {
+          const decoded = await decodeKey(v.privkey)
+          v.address = privkeyToAddress(decoded.privkey, decoded.testnet)
+        } catch {}
+      }
+      vouchers.unshift(v)
+      saveVouchers()
+      toast('Voucher imported')
+      render()
+      refreshStatus(vouchers.indexOf(v))
+      return
+    } catch (e) {
+      console.warn('TXO parse failed, trying as WIF:', e)
+    }
+  }
+
+  try {
+    const decoded = await decodeKey(input)
+    const address = privkeyToAddress(decoded.privkey, decoded.testnet)
+    toast('Looking up UTXOs...')
+    const utxos = await fetchUtxos(address)
+    if (utxos.length === 0) { toast('No UTXOs found for this key'); return }
+    let added = 0
+    for (const u of utxos) {
+      const exists = vouchers.some(v => v.txid === u.txid && v.vout === u.vout)
+      if (exists) continue
+      vouchers.unshift({
+        id: Date.now().toString(36) + added,
+        txid: u.txid, vout: u.vout, amount: u.value,
+        privkey: input, address,
+        network: 'btc',
+        status: u.status?.confirmed ? 'unspent' : 'unconfirmed',
+        dateAdded: new Date().toISOString()
+      })
+      added++
+    }
+    if (added === 0) toast('All UTXOs already in pool')
+    else { saveVouchers(); toast(`Imported ${added} voucher${added > 1 ? 's' : ''}`) }
+    render()
+  } catch (e) {
+    toast('Import failed: ' + e.message)
+    console.error(e)
+  }
+}
+
+// ── Refresh status ──────────────────────────────────────
+
+async function refreshStatus(index) {
+  if (index !== undefined) {
+    const v = vouchers[index]
+    if (!v) return
+    const result = await checkOutspend(v.txid, v.vout)
+    if (result) { v.status = result.spent ? 'spent' : 'unspent'; saveVouchers(); render() }
+    return
+  }
+  refreshing = true; render()
+  for (let i = 0; i < vouchers.length; i++) {
+    try {
+      const result = await checkOutspend(vouchers[i].txid, vouchers[i].vout)
+      if (result) vouchers[i].status = result.spent ? 'spent' : 'unspent'
+    } catch {}
+  }
+  saveVouchers(); refreshing = false; render()
+}
+
+async function deleteVoucher(id) {
+  vouchers = vouchers.filter(v => v.id !== id)
+  saveVouchers(); render()
+}
+
+// ── MRC20 Token operations ──────────────────────────────
+
+async function createToken(voucherId, name, ticker, decimals) {
+  const v = vouchers.find(x => x.id === voucherId)
+  if (!v?.privkey || v.status !== 'unspent') { toast('Need unspent voucher with key'); return }
+  const decoded = await decodeKey(v.privkey)
+  const pubkeyBase = secp256k1.getPublicKey(decoded.privkey, true)
+  const genesis = makeGenesisState(name, ticker, decimals)
+  const stateStr = jcs(genesis)
+
+  const genesisP = await btDeriveChainedPubkey(pubkeyBase, [stateStr])
+  const genesisXonly = btXonly(genesisP)
+  const genesisScript = p2trScript(genesisXonly)
+  const genesisAddr = bech32mEncode('tb', 1, genesisXonly)
+
+  const txDetails = await fetchTxDetails(v.txid)
+  const prevOut = txDetails.vout[v.vout]
+  if (!prevOut) { toast('Could not find UTXO output'); return }
+  const scriptPubKey = hexToU8(prevOut.scriptpubkey)
+
+  const feeRate = await getFeeRate()
+  const vsize = estimateVsize(1, 1)
+  const fee = Math.ceil(vsize * feeRate)
+  const outputAmount = v.amount - fee
+  if (outputAmount <= 546) { toast('Not enough funds for fee'); return }
+
+  if (!confirm(`Create token "${name}" (${ticker})?\n\nSpend ${v.amount.toLocaleString()} sats voucher\n\u2192 ${genesisAddr}\nOutput: ${outputAmount.toLocaleString()} sats\nFee: ${fee} sats (${feeRate} sat/vB)`)) return
+
+  toast('Building genesis transaction...')
+  const rawTx = await buildTransaction(
+    [{ txid: v.txid, vout: v.vout, amount: v.amount, scriptPubKey }],
+    [{ amount: outputAmount, scriptPubKey: genesisScript }],
+    decoded.privkey
+  )
+  const newTxid = await broadcastTx(rawTx)
+  toast('Genesis broadcast! ' + truncate(newTxid))
+
+  v.status = 'spent'
+  saveVouchers()
+
+  tokens.unshift({
+    id: Date.now().toString(36),
+    privkey: v.privkey,
+    pubkeyBase: bytesToHex(pubkeyBase),
+    name, ticker, decimals,
+    states: [genesis],
+    stateStrings: [stateStr],
+    network: 'tbtc4',
+    currentTxid: newTxid,
+    currentVout: 0,
+    currentAmount: outputAmount,
+    dateCreated: new Date().toISOString()
+  })
+  saveTokens(); render()
+}
+
+async function tokenOp(tokenId, ops) {
+  const token = tokens.find(t => t.id === tokenId)
+  if (!token) return
+
+  const prevState = token.states[token.states.length - 1]
+  const newState = await nextState(prevState, ops)
+  const stateStr = jcs(newState)
+
+  const decoded = await decodeKey(token.privkey)
+  const pubkeyBase = hexToU8(token.pubkeyBase)
+  const currentPrivkey = await btDeriveChainedPrivkey(decoded.privkey, token.stateStrings)
+
+  const allStateStrings = [...token.stateStrings, stateStr]
+  const newP = await btDeriveChainedPubkey(pubkeyBase, allStateStrings)
+  const newXonly = btXonly(newP)
+  const newScript = p2trScript(newXonly)
+  const newAddr = bech32mEncode('tb', 1, newXonly)
+
+  const txDetails = await fetchTxDetails(token.currentTxid)
+  const prevOut = txDetails.vout[token.currentVout]
+  if (!prevOut) { toast('Could not find current UTXO'); return }
+  const scriptPubKey = hexToU8(prevOut.scriptpubkey)
+
+  const feeRate = await getFeeRate()
+  const vsize = estimateVsize(1, 1)
+  const fee = Math.ceil(vsize * feeRate)
+  const outputAmount = token.currentAmount - fee
+  if (outputAmount <= 546) { toast('Not enough funds for fee'); return }
+
+  const opDesc = ops.map(o => {
+    const type = o.op.split(':').pop()
+    if (type === 'mint') return `Mint ${formatTokenAmount(o.amt, token.decimals)} to ${truncate(o.to)}`
+    if (type === 'transfer') return `Transfer ${formatTokenAmount(o.amt, token.decimals)} ${truncate(o.from)} \u2192 ${truncate(o.to)}`
+    if (type === 'burn') return `Burn ${formatTokenAmount(o.amt, token.decimals)} from ${truncate(o.from)}`
+    return type
+  }).join('\n')
+
+  if (!confirm(`${opDesc}\n\nSeq: ${prevState.seq} \u2192 ${newState.seq}\n\u2192 ${newAddr}\nOutput: ${outputAmount.toLocaleString()} sats\nFee: ${fee} sats (${feeRate} sat/vB)`)) return
+
+  toast('Building transaction...')
+  const rawTx = await buildTransaction(
+    [{ txid: token.currentTxid, vout: token.currentVout, amount: token.currentAmount, scriptPubKey }],
+    [{ amount: outputAmount, scriptPubKey: newScript }],
+    currentPrivkey
+  )
+  const newTxid = await broadcastTx(rawTx)
+  toast('Broadcast! ' + truncate(newTxid))
+
+  token.states.push(newState)
+  token.stateStrings.push(stateStr)
+  token.currentTxid = newTxid
+  token.currentVout = 0
+  token.currentAmount = outputAmount
+  saveTokens(); render()
+}
+
+async function deleteToken(id) {
+  tokens = tokens.filter(t => t.id !== id)
+  saveTokens(); render()
+}
+
+// ── Render ──────────────────────────────────────────────
+
+const app = document.getElementById('app')
+
+function render() {
+  const unspent = vouchers.filter(v => v.status === 'unspent')
+  const totalSats = unspent.reduce((s, v) => s + (v.amount || 0), 0)
+
+  let html = `
+    <div class="v-header">
+      <div class="v-title">\u{1FA99} MRC20 Tokens <span class="v-net">TESTNET4</span></div>
+    </div>
+
+    <div class="v-hero">
+      <div class="v-hero-label">Available Balance</div>
+      <div class="v-hero-sats">${totalSats.toLocaleString()} <span style="font-size:0.4em;color:rgba(255,255,255,0.35)">sats</span></div>
+      <div class="v-hero-btc">${satsBtc(totalSats)} tBTC</div>
+    </div>
+
+    <div class="v-stats">
+      <div class="v-stat">
+        <div class="v-stat-val">${vouchers.length}</div>
+        <div class="v-stat-label">Vouchers</div>
+      </div>
+      <div class="v-stat">
+        <div class="v-stat-val" style="color:#10b981">${unspent.length}</div>
+        <div class="v-stat-label">Unspent</div>
+      </div>
+      <div class="v-stat">
+        <div class="v-stat-val" style="color:#ec4899">${tokens.length}</div>
+        <div class="v-stat-label">Tokens</div>
+      </div>
+    </div>
+
+    <div class="v-card">
+      <h2>Import Voucher</h2>
+      <div class="v-import-row">
+        <input class="v-input" id="v-import-input" placeholder="Paste hex key, WIF, or TXO URI..." />
+        <button class="v-btn v-btn-primary" id="v-import-btn">${importing ? '<span class="v-spinner"></span>' : 'Import'}</button>
+      </div>
+      <div class="v-help">
+        Vouchers fund MRC20 token state transitions on Bitcoin via blocktrails key chaining.<br/>
+        Tip: use <code>?key=cN...</code> in the URL to auto-import.
+      </div>
+    </div>
+
+    <div class="v-card">
+      <h2>
+        Vouchers
+        <div style="display:flex;gap:6px">
+          <button class="v-btn v-btn-sm" id="v-refresh-btn" ${refreshing ? 'disabled' : ''}>
+            ${refreshing ? '<span class="v-spinner"></span> Checking...' : '\u21BB Refresh'}
+          </button>
+          ${vouchers.length > 0 ? '<button class="v-btn v-btn-sm v-btn-danger" id="v-clear-btn">\u2716 Clear All</button>' : ''}
+        </div>
+      </h2>
+      <div id="v-list">
+  `
+
+  if (vouchers.length === 0) {
+    html += '<div class="v-empty">No vouchers yet. Import a key or TXO URI to get started.</div>'
+  } else {
+    for (const v of vouchers) {
+      const hasKey = !!v.privkey
+      const badgeClass = v.status === 'unspent' ? 'v-badge-unspent' : v.status === 'spent' ? 'v-badge-spent' : 'v-badge-unknown'
+      const badgeLabel = v.status === 'unspent' ? 'Unspent' : v.status === 'spent' ? 'Spent' : 'Unknown'
+      html += `
+        <div class="v-item" data-id="${v.id}">
+          <div class="v-item-top">
+            <div class="v-item-amount">
+              ${(v.amount || 0).toLocaleString()} <small>sats</small>
+              <span class="v-badge ${badgeClass}"><span class="v-badge-dot"></span>${badgeLabel}</span>
+              ${!hasKey ? '<span class="v-badge v-badge-locked"><span class="v-badge-dot"></span>No Key</span>' : ''}
+            </div>
+            <div class="v-item-actions">
+              ${hasKey ? `<button class="v-btn v-btn-icon" data-action="copy-txo" data-id="${v.id}" title="Copy TXO URI">\u2398</button>` : ''}
+              <button class="v-btn v-btn-icon v-btn-danger" data-action="delete" data-id="${v.id}" title="Delete">\u2716</button>
+            </div>
+          </div>
+          <div class="v-item-details">
+            <span class="v-item-label">TXID</span>
+            <a class="v-item-val" href="https://mempool.guide/testnet4/tx/${v.txid}" target="_blank" rel="noopener" style="color:rgba(167,139,250,0.8);text-decoration:none">${truncate(v.txid)}:${v.vout}</a>
+            ${v.address ? `
+              <span class="v-item-label">Address</span>
+              <span class="v-item-val" data-action="copy-raw" data-val="${v.address}">${truncate(v.address, 10, 6)}</span>
+            ` : ''}
+            ${hasKey ? `
+              <span class="v-item-label">Key</span>
+              <span class="v-item-val v-masked" data-action="reveal" data-full="${escHtml(v.privkey)}">${maskKey(v.privkey)}</span>
+            ` : ''}
+          </div>
+        </div>
+      `
+    }
+  }
+
+  html += '</div></div>'
+
+  // ── Tokens section ──
+  const fundable = vouchers.filter(v => v.privkey && v.status === 'unspent')
+
+  html += `
+    <div class="v-card">
+      <h2>
+        MRC20 Tokens
+        <div style="display:flex;gap:6px">
+          ${fundable.length > 0 ? '<button class="v-btn v-btn-sm" id="tk-new-toggle" style="color:#ec4899;border-color:rgba(236,72,153,0.3)">+ New Token</button>' : ''}
+          ${tokens.length > 0 ? '<button class="v-btn v-btn-sm v-btn-danger" id="tk-clear-all">\u2716 Clear</button>' : ''}
+        </div>
+      </h2>
+
+      <div id="tk-new-form" style="display:none;margin-bottom:16px;padding:14px;background:rgba(236,72,153,0.06);border:1px solid rgba(236,72,153,0.2);border-radius:10px">
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);margin-bottom:8px">Create new fungible token:</div>
+        <select class="v-input" id="tk-voucher-select" style="margin-bottom:8px;padding:8px">
+          ${fundable.map(v => `<option value="${v.id}">${(v.amount||0).toLocaleString()} sats \u2014 ${truncate(v.txid)}:${v.vout}</option>`).join('')}
+        </select>
+        <div class="tk-form">
+          <input class="v-input" id="tk-name" placeholder="Token name (e.g. My Token)" />
+          <input class="v-input" id="tk-ticker" placeholder="Ticker (e.g. MTK)" maxlength="10" />
+          <input class="v-input" id="tk-decimals" type="number" value="8" min="0" max="18" placeholder="Decimals" />
+          <div style="display:flex;gap:8px">
+            <button class="v-btn v-btn-primary v-btn-sm" id="tk-create-btn">Create</button>
+            <button class="v-btn v-btn-sm" id="tk-cancel-new">\u2716</button>
+          </div>
+        </div>
+      </div>
+  `
+
+  if (tokens.length === 0) {
+    html += '<div class="v-empty">No tokens yet. Create a new MRC20 token from an unspent voucher.</div>'
+  } else {
+    for (const token of tokens) {
+      const latest = token.states[token.states.length - 1]
+      const balEntries = Object.entries(latest.balances)
+      html += `
+        <div class="v-item" data-token="${token.id}" style="border-color:rgba(236,72,153,0.15)">
+          <div class="v-item-top">
+            <div class="v-item-amount" style="display:flex;align-items:center;gap:8px">
+              ${escHtml(token.name)}
+              <span class="tk-ticker">${escHtml(token.ticker)}</span>
+              <span class="tk-seq">seq ${latest.seq}</span>
+            </div>
+            <div class="v-item-actions">
+              <button class="v-btn v-btn-sm" data-action="tk-mint" data-id="${token.id}" style="color:#10b981;border-color:rgba(16,185,129,0.3)">Mint</button>
+              <button class="v-btn v-btn-sm" data-action="tk-transfer" data-id="${token.id}" style="color:#3b82f6;border-color:rgba(59,130,246,0.3)">Transfer</button>
+              <button class="v-btn v-btn-sm" data-action="tk-burn" data-id="${token.id}" style="color:#ef4444;border-color:rgba(239,68,68,0.3)">Burn</button>
+              <button class="v-btn v-btn-sm" data-action="tk-verify" data-id="${token.id}">Verify</button>
+              <button class="v-btn v-btn-icon v-btn-danger" data-action="tk-delete" data-id="${token.id}" title="Delete">\u2716</button>
+            </div>
+          </div>
+          <div class="v-item-details">
+            <span class="v-item-label">Supply</span>
+            <span class="v-item-val" style="color:rgba(236,72,153,0.8)">${formatTokenAmount(latest.supply, token.decimals)} ${escHtml(token.ticker)}</span>
+            <span class="v-item-label">Sats</span>
+            <span class="v-item-val">${(token.currentAmount || 0).toLocaleString()} sats</span>
+            <span class="v-item-label">TXID</span>
+            <a class="v-item-val" href="https://mempool.guide/testnet4/tx/${token.currentTxid}" target="_blank" rel="noopener" style="color:rgba(167,139,250,0.8);text-decoration:none">${truncate(token.currentTxid)}:${token.currentVout}</a>
+            <span class="v-item-label">Key</span>
+            <span class="v-item-val v-masked" data-action="reveal" data-full="${escHtml(token.privkey)}">${maskKey(token.privkey)}</span>
+          </div>
+          ${balEntries.length > 0 ? `
+            <div style="margin-top:10px">
+              <div style="font-size:0.72rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Balances</div>
+              ${balEntries.map(([addr, amt]) => `
+                <div class="tk-bal-row">
+                  <span class="tk-bal-amt">${formatTokenAmount(amt, token.decimals)}</span>
+                  <span class="tk-bal-addr" data-action="copy-raw" data-val="${escHtml(addr)}">${truncate(addr, 10, 6)}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <div class="tk-mint-form" style="display:none;margin-top:10px;padding:10px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:8px">
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-bottom:6px">Mint tokens</div>
+            <div class="v-import-row">
+              <input class="v-input" placeholder="To address" data-mint-to="${token.id}" />
+              <input class="v-input" type="number" placeholder="Amount" style="width:120px" data-mint-amt="${token.id}" />
+              <button class="v-btn v-btn-sm" data-action="tk-confirm-mint" data-id="${token.id}" style="color:#10b981">Mint</button>
+              <button class="v-btn v-btn-sm" data-action="tk-cancel-mint" data-id="${token.id}">\u2716</button>
+            </div>
+          </div>
+
+          <div class="tk-transfer-form" style="display:none;margin-top:10px;padding:10px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:8px">
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-bottom:6px">Transfer tokens</div>
+            <div class="v-import-row" style="flex-wrap:wrap">
+              <input class="v-input" placeholder="From address" data-xfer-from="${token.id}" />
+              <input class="v-input" placeholder="To address" data-xfer-to="${token.id}" />
+              <input class="v-input" type="number" placeholder="Amount" style="width:120px" data-xfer-amt="${token.id}" />
+              <button class="v-btn v-btn-sm" data-action="tk-confirm-transfer" data-id="${token.id}" style="color:#3b82f6">Transfer</button>
+              <button class="v-btn v-btn-sm" data-action="tk-cancel-transfer" data-id="${token.id}">\u2716</button>
+            </div>
+          </div>
+
+          <div class="tk-burn-form" style="display:none;margin-top:10px;padding:10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px">
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-bottom:6px">Burn tokens</div>
+            <div class="v-import-row">
+              <input class="v-input" placeholder="From address" data-burn-from="${token.id}" />
+              <input class="v-input" type="number" placeholder="Amount" style="width:120px" data-burn-amt="${token.id}" />
+              <button class="v-btn v-btn-sm" data-action="tk-confirm-burn" data-id="${token.id}" style="color:#ef4444">Burn</button>
+              <button class="v-btn v-btn-sm" data-action="tk-cancel-burn" data-id="${token.id}">\u2716</button>
+            </div>
+          </div>
+
+          <div class="tk-verify-panel" data-tk-verify="${token.id}" style="display:none;margin-top:10px">
+            <div style="color:rgba(255,255,255,0.3);font-size:0.8rem"><span class="v-spinner"></span> Computing chain...</div>
+          </div>
+        </div>
+      `
+    }
+  }
+
+  html += '</div>'
+
+  app.innerHTML = html
+  bindEvents()
+}
+
+function bindEvents() {
+  // Import
+  const importBtn = document.getElementById('v-import-btn')
+  const importInput = document.getElementById('v-import-input')
+  if (importBtn && importInput) {
+    const doImport = async () => {
+      if (importing) return
+      importing = true; render()
+      await importKey(importInput.value)
+      importing = false; render()
+    }
+    importBtn.addEventListener('click', doImport)
+    importInput.addEventListener('keydown', e => { if (e.key === 'Enter') doImport() })
+    importInput.addEventListener('input', () => { if (isHexKey(importInput.value.trim())) doImport() })
+  }
+
+  document.getElementById('v-refresh-btn')?.addEventListener('click', () => refreshStatus())
+
+  document.getElementById('v-clear-btn')?.addEventListener('click', () => {
+    if (!confirm('Delete all vouchers?')) return
+    vouchers = []; saveVouchers(); render()
+  })
+
+  document.querySelectorAll('[data-action="copy-txo"]').forEach(btn => {
+    btn.addEventListener('click', () => { const v = vouchers.find(x => x.id === btn.dataset.id); if (v) copyText(buildTxoUri(v)) })
+  })
+
+  document.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteVoucher(btn.dataset.id))
+  })
+
+  document.querySelectorAll('[data-action="copy-raw"]').forEach(el => {
+    el.addEventListener('click', () => copyText(el.dataset.val))
+  })
+
+  document.querySelectorAll('[data-action="reveal"]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.classList.contains('v-masked')) { el.textContent = el.dataset.full; el.classList.remove('v-masked') }
+      else { el.textContent = maskKey(el.dataset.full); el.classList.add('v-masked') }
+    })
+  })
+
+  // ── Token events ──
+
+  document.getElementById('tk-new-toggle')?.addEventListener('click', () => {
+    const form = document.getElementById('tk-new-form')
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none'
+  })
+  document.getElementById('tk-cancel-new')?.addEventListener('click', () => {
+    const form = document.getElementById('tk-new-form')
+    if (form) form.style.display = 'none'
+  })
+
+  document.getElementById('tk-create-btn')?.addEventListener('click', async () => {
+    const select = document.getElementById('tk-voucher-select')
+    const name = document.getElementById('tk-name')?.value?.trim()
+    const ticker = document.getElementById('tk-ticker')?.value?.trim()?.toUpperCase()
+    const decimals = parseInt(document.getElementById('tk-decimals')?.value) || 0
+    if (!select?.value || !name || !ticker) { toast('Fill in name and ticker'); return }
+    if (decimals < 0 || decimals > 18) { toast('Decimals must be 0-18'); return }
+    try { await createToken(select.value, name, ticker, decimals) }
+    catch (e) { toast('Create failed: ' + e.message); console.error(e) }
+  })
+
+  document.getElementById('tk-clear-all')?.addEventListener('click', () => {
+    if (!confirm('Delete all tokens?')) return
+    tokens = []; saveTokens(); render()
+  })
+
+  // Mint
+  document.querySelectorAll('[data-action="tk-mint"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = btn.closest('.v-item')?.querySelector('.tk-mint-form')
+      if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none'
+    })
+  })
+  document.querySelectorAll('[data-action="tk-cancel-mint"]').forEach(btn => {
+    btn.addEventListener('click', () => { btn.closest('.tk-mint-form').style.display = 'none' })
+  })
+  document.querySelectorAll('[data-action="tk-confirm-mint"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id
+      const to = document.querySelector(`[data-mint-to="${id}"]`)?.value?.trim()
+      const amt = parseInt(document.querySelector(`[data-mint-amt="${id}"]`)?.value)
+      if (!to || !amt || amt <= 0) { toast('Enter address and amount'); return }
+      try { await tokenOp(id, [{ op: 'urn:mono:op:mint', to, amt }]) }
+      catch (e) { toast('Mint failed: ' + e.message); console.error(e) }
+    })
+  })
+
+  // Transfer
+  document.querySelectorAll('[data-action="tk-transfer"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = btn.closest('.v-item')?.querySelector('.tk-transfer-form')
+      if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none'
+    })
+  })
+  document.querySelectorAll('[data-action="tk-cancel-transfer"]').forEach(btn => {
+    btn.addEventListener('click', () => { btn.closest('.tk-transfer-form').style.display = 'none' })
+  })
+  document.querySelectorAll('[data-action="tk-confirm-transfer"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id
+      const from = document.querySelector(`[data-xfer-from="${id}"]`)?.value?.trim()
+      const to = document.querySelector(`[data-xfer-to="${id}"]`)?.value?.trim()
+      const amt = parseInt(document.querySelector(`[data-xfer-amt="${id}"]`)?.value)
+      if (!from || !to || !amt || amt <= 0) { toast('Fill in from, to, and amount'); return }
+      try { await tokenOp(id, [{ op: 'urn:mono:op:transfer', from, to, amt }]) }
+      catch (e) { toast('Transfer failed: ' + e.message); console.error(e) }
+    })
+  })
+
+  // Burn
+  document.querySelectorAll('[data-action="tk-burn"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = btn.closest('.v-item')?.querySelector('.tk-burn-form')
+      if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none'
+    })
+  })
+  document.querySelectorAll('[data-action="tk-cancel-burn"]').forEach(btn => {
+    btn.addEventListener('click', () => { btn.closest('.tk-burn-form').style.display = 'none' })
+  })
+  document.querySelectorAll('[data-action="tk-confirm-burn"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id
+      const from = document.querySelector(`[data-burn-from="${id}"]`)?.value?.trim()
+      const amt = parseInt(document.querySelector(`[data-burn-amt="${id}"]`)?.value)
+      if (!from || !amt || amt <= 0) { toast('Enter address and amount'); return }
+      try { await tokenOp(id, [{ op: 'urn:mono:op:burn', from, amt }]) }
+      catch (e) { toast('Burn failed: ' + e.message); console.error(e) }
+    })
+  })
+
+  // Verify
+  document.querySelectorAll('[data-action="tk-verify"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const token = tokens.find(t => t.id === btn.dataset.id)
+      if (!token) return
+      const panel = document.querySelector(`[data-tk-verify="${token.id}"]`)
+      if (!panel) return
+      if (panel.style.display !== 'none') { panel.style.display = 'none'; return }
+      panel.style.display = 'block'
+      panel.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:0.8rem"><span class="v-spinner"></span> Computing chain...</div>'
+      try {
+        const pubkeyBase = hexToU8(token.pubkeyBase)
+        let h = '<ul class="bt-chain">'
+        for (let i = 0; i < token.states.length; i++) {
+          const state = token.states[i]
+          const cur = i === token.states.length - 1
+          const addr = await btAddress(pubkeyBase, token.stateStrings.slice(0, i + 1))
+
+          let prevOk = true
+          if (i === 0) {
+            prevOk = state.prev === ZERO_PREV
+          } else {
+            const expectedPrev = await sha256Hex(token.stateStrings[i - 1])
+            prevOk = state.prev === expectedPrev
+          }
+
+          const opsDesc = state.ops.length === 0 ? 'Genesis' :
+            state.ops.map(o => {
+              const t = o.op.split(':').pop()
+              if (t === 'mint') return `<span class="tk-op-type tk-op-mint">mint</span> ${formatTokenAmount(o.amt, token.decimals)}`
+              if (t === 'transfer') return `<span class="tk-op-type tk-op-transfer">xfer</span> ${formatTokenAmount(o.amt, token.decimals)}`
+              if (t === 'burn') return `<span class="tk-op-type tk-op-burn">burn</span> ${formatTokenAmount(o.amt, token.decimals)}`
+              return t
+            }).join(' ')
+
+          h += `<li class="bt-step ${cur ? 'bt-step-current' : ''}">
+            <span class="bt-step-num">${i}</span>
+            <div class="bt-step-info">
+              <div class="bt-step-state">${opsDesc} ${!prevOk ? '<span style="color:#ef4444">\u2716 bad prev</span>' : ''}</div>
+              <div style="font-size:0.72rem;color:rgba(255,255,255,0.35)">supply: ${formatTokenAmount(state.supply, token.decimals)} | seq: ${state.seq}</div>
+              <div class="bt-step-addr" data-action="copy-raw" data-val="${addr}">${addr}</div>
+            </div>
+          </li>`
+        }
+        h += '</ul>'
+        h += `<div style="margin-top:8px;font-size:0.75rem;color:rgba(16,185,129,0.7)">Chain verified: ${token.states.length} state${token.states.length > 1 ? 's' : ''}, profile ${MRC20_PROFILE}</div>`
+        panel.innerHTML = h
+        panel.querySelectorAll('[data-action="copy-raw"]').forEach(el => {
+          el.addEventListener('click', () => copyText(el.dataset.val))
+        })
+      } catch (e) {
+        panel.innerHTML = `<div style="color:#ef4444;font-size:0.8rem">Verify failed: ${escHtml(e.message)}</div>`
+      }
+    })
+  })
+
+  // Delete token
+  document.querySelectorAll('[data-action="tk-delete"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteToken(btn.dataset.id))
+  })
+}
+
+// ── Init ────────────────────────────────────────────────
+
+async function init() {
+  const params = new URLSearchParams(location.search)
+  const keyParam = params.get('key')
+
+  vouchers = loadVouchers()
+  tokens = loadTokens()
+  render()
+
+  if (keyParam) {
+    history.replaceState({}, '', location.pathname)
+    importing = true; render()
+    await importKey(keyParam)
+    importing = false; render()
+  }
+
+  if (vouchers.length > 0) refreshStatus()
+}
+
+init()
+  </script>
+</body>
+</html>
