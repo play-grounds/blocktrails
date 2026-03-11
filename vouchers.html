@@ -463,6 +463,9 @@ function satsBtc(sats) {
 
 function toSats(amount) {
   if (!amount) return 0
+  // If already looks like sats (integer >= 1), return as-is
+  if (Number.isInteger(amount) && amount >= 1) return amount
+  // Otherwise treat as BTC and convert
   const converted = Math.round(amount * 1e8)
   if (converted > 2_100_000_000_000_000) return Math.round(amount)
   return converted
