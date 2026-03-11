@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Voucher Pool</title>
+  <title>Blocktrails</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -92,6 +92,19 @@
 
     .v-help { font-size: 0.78rem; color: rgba(255,255,255,0.25); margin-top: 10px; line-height: 1.5; }
     .v-help code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+
+    /* Blocktrails */
+    .bt-chain { padding: 0; margin: 8px 0 0; list-style: none; }
+    .bt-step { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.82rem; }
+    .bt-step:last-child { border-bottom: none; }
+    .bt-step-num { min-width: 24px; height: 24px; border-radius: 50%; background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.4); color: #a78bfa; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .bt-step-current .bt-step-num { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.4); color: #10b981; }
+    .bt-step-info { flex: 1; min-width: 0; }
+    .bt-step-state { font-weight: 600; color: rgba(255,255,255,0.8); word-break: break-all; }
+    .bt-step-addr { font-family: 'SF Mono', monospace; font-size: 0.75rem; color: rgba(255,255,255,0.35); word-break: break-all; cursor: pointer; }
+    .bt-step-addr:hover { color: rgba(255,255,255,0.7); }
+    .bt-arrow { color: rgba(255,255,255,0.1); font-size: 0.7rem; text-align: center; padding: 2px 0; }
+    .bt-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 600; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #a78bfa; }
 
     @media (max-width: 600px) {
       .v-stats { grid-template-columns: 1fr; }
@@ -753,6 +766,184 @@ function buildTxoUri(v) {
   return params.length ? `${base}?${params.join('&')}` : base
 }
 
+// ── Blocktrails: Key chaining (BIP-341) ─────────────────
+
+async function btScalar(pubkeyCompressed, state) {
+  const xOnly = pubkeyCompressed.slice(1)
+  const stateBytes = typeof state === 'string' ? new TextEncoder().encode(state) : state
+  const sh = await sha256(stateBytes)
+  return bytesToBigInt(await taggedHash('TapTweak', xOnly, sh)) % SECP_N
+}
+
+async function btDeriveChainedPubkey(pubkeyBase, states) {
+  let P = secp256k1.ProjectivePoint.fromHex(bytesToHex(pubkeyBase))
+  let cur = pubkeyBase
+  for (const s of states) {
+    const t = await btScalar(cur, s)
+    P = P.add(secp256k1.ProjectivePoint.BASE.multiply(t))
+    cur = P.toRawBytes(true)
+  }
+  return cur
+}
+
+async function btDeriveChainedPrivkey(privkeyBytes, states) {
+  let d = bytesToBigInt(privkeyBytes)
+  let cur = secp256k1.getPublicKey(privkeyBytes, true)
+  for (const s of states) {
+    const t = await btScalar(cur, s)
+    d = (d + t) % SECP_N
+    cur = secp256k1.ProjectivePoint.BASE.multiply(d).toRawBytes(true)
+  }
+  return bigIntToBytes(d)
+}
+
+function btXonly(pubkeyCompressed) {
+  return pubkeyCompressed.slice(1)
+}
+
+async function btAddress(pubkeyBase, states) {
+  const P = await btDeriveChainedPubkey(pubkeyBase, states)
+  return bech32mEncode('tb', 1, btXonly(P))
+}
+
+// ── Blocktrails: State & storage ─────────────────────────
+
+let trails = []
+const TRAILS_KEY = 'blocktrails-tbtc4'
+
+function loadTrails() {
+  try { return JSON.parse(localStorage.getItem(TRAILS_KEY) || '[]') } catch { return [] }
+}
+function saveTrails() {
+  try { localStorage.setItem(TRAILS_KEY, JSON.stringify(trails)) } catch {}
+}
+
+// ── Blocktrails: Trail operations ────────────────────────
+
+async function createTrail(voucherId, genesisState) {
+  const v = vouchers.find(x => x.id === voucherId)
+  if (!v?.privkey || v.status !== 'unspent') { toast('Need unspent voucher with key'); return }
+
+  const decoded = await decodeKey(v.privkey)
+  const pubkeyBase = secp256k1.getPublicKey(decoded.privkey, true)
+
+  // Derive genesis P2TR output
+  const genesisP = await btDeriveChainedPubkey(pubkeyBase, [genesisState])
+  const genesisXonly = btXonly(genesisP)
+  const genesisScript = p2trScript(genesisXonly)
+  const genesisAddr = bech32mEncode('tb', 1, genesisXonly)
+
+  // Fetch current UTXO scriptPubKey
+  const txDetails = await fetchTxDetails(v.txid)
+  const prevOut = txDetails.vout[v.vout]
+  if (!prevOut) { toast('Could not find UTXO output'); return }
+  const scriptPubKey = hexToU8(prevOut.scriptpubkey)
+
+  // Calculate fee
+  const feeRate = await getFeeRate()
+  const vsize = estimateVsize(1, 1)
+  const fee = Math.ceil(vsize * feeRate)
+  const outputAmount = v.amount - fee
+  if (outputAmount <= 546) { toast('Not enough funds for fee'); return }
+
+  if (!confirm(`Create blocktrail "${genesisState}"?\n\nSpend ${v.amount.toLocaleString()} sats voucher\n→ ${genesisAddr}\nOutput: ${outputAmount.toLocaleString()} sats\nFee: ${fee} sats (${feeRate} sat/vB)`)) return
+
+  toast('Building genesis transaction...')
+  const rawTx = await buildTransaction(
+    [{ txid: v.txid, vout: v.vout, amount: v.amount, scriptPubKey }],
+    [{ amount: outputAmount, scriptPubKey: genesisScript }],
+    decoded.privkey
+  )
+  const newTxid = await broadcastTx(rawTx)
+  toast('Genesis broadcast! ' + truncate(newTxid))
+
+  // Mark voucher spent
+  v.status = 'spent'
+  saveVouchers()
+
+  // Create trail
+  trails.unshift({
+    id: Date.now().toString(36),
+    privkey: v.privkey,
+    pubkeyBase: bytesToHex(pubkeyBase),
+    states: [genesisState],
+    network: 'tbtc4',
+    currentTxid: newTxid,
+    currentVout: 0,
+    currentAmount: outputAmount,
+    dateCreated: new Date().toISOString()
+  })
+  saveTrails()
+  render()
+}
+
+async function advanceTrail(trailId, newState) {
+  const trail = trails.find(t => t.id === trailId)
+  if (!trail) return
+
+  const decoded = await decodeKey(trail.privkey)
+  const pubkeyBase = hexToU8(trail.pubkeyBase)
+
+  // Current chained private key (for signing)
+  const currentPrivkey = await btDeriveChainedPrivkey(decoded.privkey, trail.states)
+
+  // New output (all states + new)
+  const allStates = [...trail.states, newState]
+  const newP = await btDeriveChainedPubkey(pubkeyBase, allStates)
+  const newXonly = btXonly(newP)
+  const newScript = p2trScript(newXonly)
+  const newAddr = bech32mEncode('tb', 1, newXonly)
+
+  // Fetch current UTXO's scriptPubKey
+  const txDetails = await fetchTxDetails(trail.currentTxid)
+  const prevOut = txDetails.vout[trail.currentVout]
+  if (!prevOut) { toast('Could not find current UTXO'); return }
+  const scriptPubKey = hexToU8(prevOut.scriptpubkey)
+
+  // Fee
+  const feeRate = await getFeeRate()
+  const vsize = estimateVsize(1, 1)
+  const fee = Math.ceil(vsize * feeRate)
+  const outputAmount = trail.currentAmount - fee
+  if (outputAmount <= 546) { toast('Not enough funds for fee'); return }
+
+  if (!confirm(`Advance trail to state "${newState}"?\n\n→ ${newAddr}\nOutput: ${outputAmount.toLocaleString()} sats\nFee: ${fee} sats (${feeRate} sat/vB)`)) return
+
+  toast('Building advance transaction...')
+  // Pass chained privkey — buildTransaction auto-detects untweaked key match
+  const rawTx = await buildTransaction(
+    [{ txid: trail.currentTxid, vout: trail.currentVout, amount: trail.currentAmount, scriptPubKey }],
+    [{ amount: outputAmount, scriptPubKey: newScript }],
+    currentPrivkey
+  )
+  const newTxid = await broadcastTx(rawTx)
+  toast('Advance broadcast! ' + truncate(newTxid))
+
+  trail.states.push(newState)
+  trail.currentTxid = newTxid
+  trail.currentVout = 0
+  trail.currentAmount = outputAmount
+  saveTrails()
+  render()
+}
+
+async function deleteTrail(id) {
+  trails = trails.filter(t => t.id !== id)
+  saveTrails()
+  render()
+}
+
+// Compute all addresses in a trail (for verify/display)
+async function computeTrailAddresses(trail) {
+  const pubkeyBase = hexToU8(trail.pubkeyBase)
+  const addrs = []
+  for (let i = 0; i < trail.states.length; i++) {
+    const statesUpTo = trail.states.slice(0, i + 1)
+    addrs.push(await btAddress(pubkeyBase, statesUpTo))
+  }
+  return addrs
+}
+
 // ── Render ──────────────────────────────────────────────
 
 const app = document.getElementById('app')
@@ -886,6 +1077,78 @@ function render() {
 
   html += `
       </div>
+    </div>
+  `
+
+  // ── Blocktrails section ──
+  const fundable = vouchers.filter(v => v.privkey && v.status === 'unspent')
+
+  html += `
+    <div class="v-card">
+      <h2>
+        Blocktrails
+        <div style="display:flex;gap:6px">
+          ${fundable.length > 0 ? '<button class="v-btn v-btn-sm" id="bt-new-toggle">+ New Trail</button>' : ''}
+          ${trails.length > 0 ? '<button class="v-btn v-btn-sm v-btn-danger" id="bt-clear-all">\u2716 Clear</button>' : ''}
+        </div>
+      </h2>
+
+      <div id="bt-new-form" style="display:none;margin-bottom:16px;padding:14px;background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.2);border-radius:10px">
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);margin-bottom:8px">Fund trail from voucher:</div>
+        <select class="v-input" id="bt-voucher-select" style="margin-bottom:8px;padding:8px">
+          ${fundable.map(v => `<option value="${v.id}">${(v.amount||0).toLocaleString()} sats — ${truncate(v.txid)}:${v.vout}</option>`).join('')}
+        </select>
+        <div class="v-import-row">
+          <input class="v-input" id="bt-genesis-state" placeholder="Genesis state (e.g. commit hash, message, JSON...)" />
+          <button class="v-btn v-btn-primary v-btn-sm" id="bt-create-btn">Create</button>
+          <button class="v-btn v-btn-sm" id="bt-cancel-new">\u2716</button>
+        </div>
+      </div>
+  `
+
+  if (trails.length === 0) {
+    html += '<div class="v-empty">No trails yet. Fund a trail from an unspent voucher.</div>'
+  } else {
+    for (const trail of trails) {
+      const stateCount = trail.states.length
+      const latest = trail.states[stateCount - 1]
+      html += `
+        <div class="v-item" data-trail="${trail.id}" style="border-color:rgba(124,58,237,0.15)">
+          <div class="v-item-top">
+            <div class="v-item-amount" style="display:flex;align-items:center;gap:8px">
+              ${(trail.currentAmount || 0).toLocaleString()} <small>sats</small>
+              <span class="bt-badge">${stateCount} state${stateCount > 1 ? 's' : ''}</span>
+            </div>
+            <div class="v-item-actions">
+              <button class="v-btn v-btn-sm" data-action="bt-advance" data-id="${trail.id}" style="color:#10b981;border-color:rgba(16,185,129,0.3)">+ Advance</button>
+              <button class="v-btn v-btn-sm" data-action="bt-verify" data-id="${trail.id}" title="Verify chain">Verify</button>
+              <button class="v-btn v-btn-icon v-btn-danger" data-action="bt-delete" data-id="${trail.id}" title="Delete">\u2716</button>
+            </div>
+          </div>
+          <div class="v-item-details">
+            <span class="v-item-label">Latest</span>
+            <span class="v-item-val" style="color:rgba(255,255,255,0.7)">${escHtml(truncate(latest, 40, 0))}</span>
+            <span class="v-item-label">TXID</span>
+            <a class="v-item-val" href="https://mempool.guide/testnet4/tx/${trail.currentTxid}" target="_blank" rel="noopener" style="color:rgba(167,139,250,0.8);text-decoration:none">${truncate(trail.currentTxid)}:${trail.currentVout}</a>
+            <span class="v-item-label">Key</span>
+            <span class="v-item-val v-masked" data-action="reveal" data-full="${escHtml(trail.privkey)}">${maskKey(trail.privkey)}</span>
+          </div>
+          <div class="bt-advance-row" style="display:none;margin-top:10px">
+            <div class="v-import-row">
+              <input class="v-input" placeholder="New state..." data-advance-input="${trail.id}" />
+              <button class="v-btn v-btn-primary v-btn-sm" data-action="bt-confirm-advance" data-id="${trail.id}">Advance</button>
+              <button class="v-btn v-btn-sm" data-action="bt-cancel-advance" data-id="${trail.id}">\u2716</button>
+            </div>
+          </div>
+          <div class="bt-verify-panel" data-verify="${trail.id}" style="display:none;margin-top:10px">
+            <div style="color:rgba(255,255,255,0.3);font-size:0.8rem"><span class="v-spinner"></span> Computing chain...</div>
+          </div>
+        </div>
+      `
+    }
+  }
+
+  html += `
     </div>
   `
 
@@ -1073,6 +1336,125 @@ function bindEvents() {
       }
     })
   })
+
+  // ── Blocktrails events ──
+
+  // New trail toggle
+  document.getElementById('bt-new-toggle')?.addEventListener('click', () => {
+    const form = document.getElementById('bt-new-form')
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none'
+  })
+  document.getElementById('bt-cancel-new')?.addEventListener('click', () => {
+    const form = document.getElementById('bt-new-form')
+    if (form) form.style.display = 'none'
+  })
+
+  // Create trail
+  document.getElementById('bt-create-btn')?.addEventListener('click', async () => {
+    const select = document.getElementById('bt-voucher-select')
+    const stateInput = document.getElementById('bt-genesis-state')
+    if (!select?.value || !stateInput?.value?.trim()) { toast('Select voucher and enter state'); return }
+    try { await createTrail(select.value, stateInput.value.trim()) }
+    catch (e) { toast('Create failed: ' + e.message); console.error(e) }
+  })
+  document.getElementById('bt-genesis-state')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('bt-create-btn')?.click()
+  })
+
+  // Clear all trails
+  document.getElementById('bt-clear-all')?.addEventListener('click', () => {
+    if (!confirm('Delete all trails?')) return
+    trails = []
+    saveTrails()
+    render()
+  })
+
+  // Advance toggle
+  document.querySelectorAll('[data-action="bt-advance"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.v-item')
+      const row = item?.querySelector('.bt-advance-row')
+      if (row) {
+        const vis = row.style.display !== 'none'
+        row.style.display = vis ? 'none' : 'block'
+        if (!vis) row.querySelector('input')?.focus()
+      }
+    })
+  })
+
+  // Confirm advance
+  document.querySelectorAll('[data-action="bt-confirm-advance"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const input = btn.closest('.bt-advance-row')?.querySelector('input')
+      const state = input?.value?.trim()
+      if (!state) { toast('Enter a new state'); return }
+      try { await advanceTrail(btn.dataset.id, state) }
+      catch (e) { toast('Advance failed: ' + e.message); console.error(e) }
+    })
+  })
+
+  // Advance input enter key
+  document.querySelectorAll('.bt-advance-row input').forEach(input => {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.closest('.bt-advance-row')?.querySelector('[data-action="bt-confirm-advance"]')?.click()
+    })
+  })
+
+  // Cancel advance
+  document.querySelectorAll('[data-action="bt-cancel-advance"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.bt-advance-row')
+      if (row) row.style.display = 'none'
+    })
+  })
+
+  // Verify
+  document.querySelectorAll('[data-action="bt-verify"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const trail = trails.find(t => t.id === btn.dataset.id)
+      if (!trail) return
+      const panel = document.querySelector(`[data-verify="${trail.id}"]`)
+      if (!panel) return
+
+      const vis = panel.style.display !== 'none'
+      if (vis) { panel.style.display = 'none'; return }
+
+      panel.style.display = 'block'
+      panel.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:0.8rem"><span class="v-spinner"></span> Computing chain...</div>'
+
+      try {
+        const addrs = await computeTrailAddresses(trail)
+        let chainHtml = '<ul class="bt-chain">'
+        for (let i = 0; i < trail.states.length; i++) {
+          const isCurrent = i === trail.states.length - 1
+          chainHtml += `
+            <li class="bt-step ${isCurrent ? 'bt-step-current' : ''}">
+              <span class="bt-step-num">${i}</span>
+              <div class="bt-step-info">
+                <div class="bt-step-state">${escHtml(trail.states[i])}</div>
+                <div class="bt-step-addr" data-action="copy-raw" data-val="${addrs[i]}">${addrs[i]}</div>
+              </div>
+            </li>
+          `
+        }
+        chainHtml += '</ul>'
+        chainHtml += `<div style="margin-top:8px;font-size:0.75rem;color:rgba(16,185,129,0.7)">Chain verified: ${trail.states.length} state${trail.states.length > 1 ? 's' : ''}, pubkey ${truncate(trail.pubkeyBase)}</div>`
+        panel.innerHTML = chainHtml
+
+        // Bind copy on addresses
+        panel.querySelectorAll('[data-action="copy-raw"]').forEach(el => {
+          el.addEventListener('click', () => copyText(el.dataset.val))
+        })
+      } catch (e) {
+        panel.innerHTML = `<div style="color:#ef4444;font-size:0.8rem">Verify failed: ${escHtml(e.message)}</div>`
+      }
+    })
+  })
+
+  // Delete trail
+  document.querySelectorAll('[data-action="bt-delete"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteTrail(btn.dataset.id))
+  })
 }
 
 // ── Init ────────────────────────────────────────────────
@@ -1082,6 +1464,7 @@ async function init() {
   const keyParam = params.get('key')
 
   vouchers = loadVouchers()
+  trails = loadTrails()
   render()
 
   if (keyParam) {
