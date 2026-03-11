@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Wallet</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      color: rgba(255,255,255,0.9);
+      min-height: 100vh;
+    }
+    .v-top { padding: 10px 16px; }
+    .v-top a { font: 600 .85em/1 -apple-system, sans-serif; color: rgba(255,255,255,0.5); text-decoration: none; }
+    .v-wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 40px; }
+    .v-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .v-title { font-size: 1.5em; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .v-net { font-size: 0.6em; padding: 4px 10px; border-radius: 6px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3); color: #a78bfa; font-weight: 600; letter-spacing: 0.04em; }
+
+    .v-hero { text-align: center; padding: 32px 0 28px; }
+    .v-hero-label { font-size: 0.78rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .v-hero-sats { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.02em; }
+    .v-hero-btc { font-size: 0.95rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+
+    .v-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 24px; margin-bottom: 20px; backdrop-filter: blur(12px); }
+    .v-card h2 { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.9); margin: 0 0 16px; display: flex; align-items: center; justify-content: space-between; }
+
+    .v-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .v-stat { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; text-align: center; }
+    .v-stat-val { font-size: 1.5rem; font-weight: 700; }
+    .v-stat-label { font-size: 0.7rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+    .v-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); font: 0.88rem -apple-system, sans-serif; outline: none; transition: border-color 0.15s; }
+    .v-input::placeholder { color: rgba(255,255,255,0.25); }
+    .v-input:focus { border-color: rgba(139,92,246,0.5); }
+
+    .v-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); font: 600 0.85rem -apple-system, sans-serif; cursor: pointer; transition: all 0.15s; }
+    .v-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); color: #fff; }
+    .v-btn-primary { background: linear-gradient(135deg, #8b5cf6, #7c3aed); border-color: rgba(139,92,246,0.4); color: #fff; box-shadow: 0 4px 16px rgba(139,92,246,0.2); }
+    .v-btn-primary:hover { box-shadow: 0 6px 24px rgba(139,92,246,0.3); }
+    .v-btn-sm { padding: 5px 10px; font-size: 0.78rem; border-radius: 6px; }
+    .v-btn-icon { padding: 5px 8px; font-size: 0.82rem; border-radius: 6px; min-width: 30px; justify-content: center; }
+    .v-btn-danger { color: #ef4444; }
+    .v-btn-danger:hover { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
+
+    .v-empty { text-align: center; padding: 32px; color: rgba(255,255,255,0.25); font-style: italic; }
+    .v-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(16,185,129,0.9); color: #fff; padding: 8px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; z-index: 999; animation: v-fade 0.3s; }
+    @keyframes v-fade { from { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+    .v-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.15); border-top-color: #a78bfa; border-radius: 50%; animation: v-spin 0.6s linear infinite; display: inline-block; }
+    @keyframes v-spin { to { transform: rotate(360deg); } }
+    .v-help { font-size: 0.78rem; color: rgba(255,255,255,0.25); margin-top: 10px; line-height: 1.5; }
+    .v-help code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+
+    /* Item grid */
+    .dw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+    .dw-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; transition: all 0.15s; cursor: pointer; }
+    .dw-item:hover { background: rgba(255,255,255,0.07); border-color: rgba(139,92,246,0.2); transform: translateY(-2px); }
+    .dw-item-img { width: 100%; height: 140px; object-fit: cover; display: block; }
+    .dw-item-placeholder { width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; background: rgba(139,92,246,0.08); }
+    .dw-item-placeholder-icon { font-size: 2.5rem; opacity: 0.4; }
+    .dw-item-body { padding: 12px 14px; }
+    .dw-item-name { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.85); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dw-item-meta { font-size: 0.72rem; color: rgba(255,255,255,0.35); font-family: 'SF Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dw-item-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 600; margin-top: 6px; }
+    .dw-badge-did { background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3); color: #a78bfa; }
+    .dw-badge-asset { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #10b981; }
+
+    /* Add card */
+    .dw-add { border: 2px dashed rgba(255,255,255,0.08); background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px; gap: 8px; cursor: pointer; transition: all 0.15s; border-radius: 12px; }
+    .dw-add:hover { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.04); }
+    .dw-add-icon { font-size: 2rem; color: rgba(255,255,255,0.2); }
+    .dw-add-label { font-size: 0.82rem; color: rgba(255,255,255,0.3); font-weight: 500; }
+
+    /* Modal */
+    .dw-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(4px); }
+    .dw-modal { background: #1e1b3a; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px; max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .dw-modal h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+    .dw-modal-field { margin-bottom: 14px; }
+    .dw-modal-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+    .dw-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+    /* Type toggle */
+    .dw-type-toggle { display: flex; gap: 4px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 3px; margin-bottom: 16px; }
+    .dw-type-opt { flex: 1; padding: 8px; text-align: center; border-radius: 6px; border: none; background: transparent; color: rgba(255,255,255,0.4); font: 600 0.82rem -apple-system, sans-serif; cursor: pointer; transition: all 0.15s; }
+    .dw-type-opt.active { background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); color: #a78bfa; }
+
+    /* Owner info */
+    .dw-owner { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .dw-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #6d28d9); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 700; flex-shrink: 0; }
+    .dw-owner-name { font-weight: 600; font-size: 0.92rem; }
+    .dw-owner-email { font-size: 0.78rem; color: rgba(255,255,255,0.35); }
+
+    /* Storage badge */
+    .dw-storage { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font-size: 0.68rem; font-weight: 600; }
+    .dw-storage-pod { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #10b981; }
+    .dw-storage-local { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: #fbbf24; }
+    .dw-storage-url { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; }
+
+    @media (max-width: 600px) {
+      .v-stats { grid-template-columns: 1fr; }
+      .v-hero-sats { font-size: 2rem; }
+      .dw-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="v-top"><a href="./">&larr; Blocktrails</a></div>
+  <div class="v-wrap" id="app"></div>
+  <script type="module">
+
+// ── State ───────────────────────────────────────────────
+
+let wallet = null
+let loading = true
+let storageType = 'local' // 'local' or 'url'
+let showModal = false
+let editIndex = null
+let itemType = 'did' // 'did' or 'asset'
+let formData = { id: '', name: '', picture: '' }
+
+const LS_KEY = 'datawallet-data'
+
+// ── Default wallet ──────────────────────────────────────
+
+function defaultWallet() {
+  return {
+    walletName: 'Data Wallet',
+    walletId: 'default-wallet',
+    owner: { name: 'User', contactEmail: '' },
+    createdDate: new Date().toISOString().split('T')[0],
+    lastUpdated: new Date().toISOString().split('T')[0],
+    hasPart: [],
+    totalValue: 0,
+    valueCurrency: 'Satoshi',
+    stats: { totalNftsOwned: 0, forSale: 0, locked: 0 }
+  }
+}
+
+// ── Helpers ─────────────────────────────────────────────
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function truncate(s, start = 8, end = 6) {
+  if (!s || s.length <= start + end + 3) return s
+  return s.slice(0, start) + '...' + s.slice(-end)
+}
+
+function toast(msg) {
+  const t = document.createElement('div')
+  t.className = 'v-toast'
+  t.textContent = msg
+  document.body.appendChild(t)
+  setTimeout(() => t.remove(), 2500)
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied'))
+}
+
+function formatSats(n) {
+  return new Intl.NumberFormat().format(n || 0)
+}
+
+function isNostrDid(item) {
+  return item.id && item.id.startsWith('did:nostr:')
+}
+
+function pubkeyFromDid(item) {
+  return item.id ? item.id.replace('did:nostr:', '') : ''
+}
+
+// ── Storage ─────────────────────────────────────────────
+
+async function saveWallet() {
+  if (!wallet) return
+  wallet.lastUpdated = new Date().toISOString().split('T')[0]
+  wallet.stats.totalNftsOwned = wallet.hasPart.length
+  storageType = 'local'
+  try { localStorage.setItem(LS_KEY, JSON.stringify(wallet)) } catch {}
+}
+
+// ── Load wallet (multi-source) ──────────────────────────
+
+async function loadWallet() {
+  // 1. Try URI parameter
+  const params = new URLSearchParams(location.search)
+  const uri = params.get('uri')
+  if (uri) {
+    try {
+      const res = await fetch(uri)
+      if (res.ok) {
+        wallet = await res.json()
+        storageType = 'url'
+        loading = false
+        render()
+        await tryLoadWebledgerFromUri(uri)
+        return
+      }
+    } catch (e) {
+      console.warn('URI load failed:', e)
+    }
+  }
+
+  // 2. Try localStorage
+  try {
+    const stored = localStorage.getItem(LS_KEY)
+    if (stored) {
+      wallet = JSON.parse(stored)
+      storageType = 'local'
+      loading = false
+      render()
+      return
+    }
+  } catch {}
+
+  // 3. Default empty wallet
+  wallet = defaultWallet()
+  storageType = 'local'
+  loading = false
+  render()
+}
+
+async function tryLoadWebledgerFromUri(uri) {
+  try {
+    const base = uri.substring(0, uri.lastIndexOf('/') + 1)
+    const res = await fetch(base + 'webledger.json')
+    if (!res.ok) return
+    const data = await res.json()
+    if (typeof data === 'number') wallet.totalValue = data
+    else if (data.totalValue) wallet.totalValue = data.totalValue
+    render()
+  } catch {}
+}
+
+// ── Item CRUD ───────────────────────────────────────────
+
+function openAddModal() {
+  formData = { id: '', name: '', picture: '' }
+  editIndex = null
+  itemType = 'did'
+  showModal = true
+  render()
+}
+
+function openEditModal(index) {
+  const item = wallet.hasPart[index]
+  const isDid = isNostrDid(item)
+  itemType = isDid ? 'did' : 'asset'
+  formData = {
+    id: isDid ? pubkeyFromDid(item) : (item.id || ''),
+    name: isDid ? (item.name || '') : (item.title || item.name || ''),
+    picture: isDid ? (item.picture || '') : (item.previewImage || item.picture || '')
+  }
+  editIndex = index
+  showModal = true
+  render()
+}
+
+async function saveItem() {
+  if (!formData.id.trim()) { toast('ID is required'); return }
+
+  let item
+  if (itemType === 'did') {
+    const didId = formData.id.startsWith('did:nostr:') ? formData.id : `did:nostr:${formData.id}`
+    item = { id: didId }
+    if (formData.name.trim()) item.name = formData.name.trim()
+    if (formData.picture.trim()) item.picture = formData.picture.trim()
+  } else {
+    item = {
+      id: formData.id.trim(),
+      title: formData.name.trim() || undefined,
+      previewImage: formData.picture.trim() || undefined,
+      status: 'Owned',
+      acquiredDate: new Date().toISOString().split('T')[0]
+    }
+  }
+
+  if (editIndex !== null) {
+    wallet.hasPart[editIndex] = item
+  } else {
+    wallet.hasPart.push(item)
+  }
+
+  wallet.stats.totalNftsOwned = wallet.hasPart.length
+  showModal = false
+  editIndex = null
+  await saveWallet()
+  toast(editIndex !== null ? 'Item updated' : 'Item added')
+  render()
+}
+
+async function deleteItem(index) {
+  const item = wallet.hasPart[index]
+  const label = isNostrDid(item) ? (item.name || truncate(pubkeyFromDid(item))) : (item.title || item.id)
+  if (!confirm(`Delete "${label}"?`)) return
+  wallet.hasPart.splice(index, 1)
+  wallet.stats.totalNftsOwned = wallet.hasPart.length
+  await saveWallet()
+  toast('Item removed')
+  render()
+}
+
+function closeModal() {
+  showModal = false
+  editIndex = null
+  render()
+}
+
+// ── Wallet settings ─────────────────────────────────────
+
+async function editWalletName() {
+  const name = prompt('Wallet name:', wallet.walletName)
+  if (name && name.trim()) {
+    wallet.walletName = name.trim()
+    await saveWallet()
+    render()
+  }
+}
+
+async function editOwner() {
+  const name = prompt('Owner name:', wallet.owner.name)
+  if (name !== null) {
+    wallet.owner.name = name.trim() || 'User'
+    const email = prompt('Email (optional):', wallet.owner.contactEmail)
+    if (email !== null) wallet.owner.contactEmail = email.trim()
+    await saveWallet()
+    render()
+  }
+}
+
+function exportWallet() {
+  const json = JSON.stringify(wallet, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'datawallet.json'
+  a.click()
+  URL.revokeObjectURL(url)
+  toast('Exported')
+}
+
+async function importWallet() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async () => {
+    const file = input.files[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      if (!data.hasPart) { toast('Invalid wallet file'); return }
+      wallet = data
+      await saveWallet()
+      toast('Imported')
+      render()
+    } catch (e) {
+      toast('Import failed: ' + e.message)
+    }
+  }
+  input.click()
+}
+
+// ── Render ──────────────────────────────────────────────
+
+const app = document.getElementById('app')
+
+function render() {
+  if (loading || !wallet) {
+    app.innerHTML = `
+      <div class="v-header">
+        <div class="v-title">Data Wallet</div>
+      </div>
+      <div class="v-card" style="text-align:center;padding:48px">
+        <span class="v-spinner" style="width:32px;height:32px"></span>
+        <div style="margin-top:12px;color:rgba(255,255,255,0.4)">Loading wallet...</div>
+      </div>
+    `
+    return
+  }
+
+  const items = wallet.hasPart || []
+  const didCount = items.filter(isNostrDid).length
+  const assetCount = items.length - didCount
+  const storageBadge = storageType === 'url'
+    ? '<span class="dw-storage dw-storage-url">URL</span>'
+    : '<span class="dw-storage dw-storage-local">Local</span>'
+
+  let html = `
+    <div class="v-header">
+      <div class="v-title">${escHtml(wallet.walletName)} ${storageBadge}</div>
+      <div style="display:flex;gap:6px">
+        <button class="v-btn v-btn-sm" id="dw-export-btn">Export</button>
+        <button class="v-btn v-btn-sm" id="dw-import-btn">Import</button>
+      </div>
+    </div>
+
+    <div class="v-hero">
+      <div class="v-hero-label">Total Value</div>
+      <div class="v-hero-sats">${formatSats(wallet.totalValue)} <span style="font-size:0.4em;color:rgba(255,255,255,0.35)">${escHtml(wallet.valueCurrency || 'sats')}</span></div>
+      <div class="v-hero-btc">${((wallet.totalValue || 0) / 1e8).toFixed(8)} BTC</div>
+    </div>
+
+    <div class="v-stats">
+      <div class="v-stat">
+        <div class="v-stat-val">${items.length}</div>
+        <div class="v-stat-label">Items</div>
+      </div>
+      <div class="v-stat">
+        <div class="v-stat-val" style="color:#a78bfa">${didCount}</div>
+        <div class="v-stat-label">DIDs</div>
+      </div>
+      <div class="v-stat">
+        <div class="v-stat-val" style="color:#10b981">${assetCount}</div>
+        <div class="v-stat-label">Assets</div>
+      </div>
+    </div>
+
+    <div class="v-card">
+      <h2>
+        Owner
+        <button class="v-btn v-btn-sm v-btn-icon" id="dw-edit-owner" title="Edit">&#9998;</button>
+      </h2>
+      <div class="dw-owner">
+        <div class="dw-avatar">${escHtml((wallet.owner.name || 'U').charAt(0).toUpperCase())}</div>
+        <div>
+          <div class="dw-owner-name">${escHtml(wallet.owner.name)}</div>
+          ${wallet.owner.contactEmail ? `<div class="dw-owner-email">${escHtml(wallet.owner.contactEmail)}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:0.78rem;color:rgba(255,255,255,0.3)">
+        <span>Created: ${escHtml(wallet.createdDate || 'N/A')}</span>
+        <span>Updated: ${escHtml(wallet.lastUpdated || 'N/A')}</span>
+      </div>
+    </div>
+
+    <div class="v-card">
+      <h2>
+        Wallet Items
+        <button class="v-btn v-btn-sm v-btn-primary" id="dw-add-btn">+ Add</button>
+      </h2>
+      <div class="dw-grid">
+  `
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const isDid = isNostrDid(item)
+    const name = isDid ? (item.name || 'Nostr DID') : (item.title || item.name || 'Untitled')
+    const img = isDid ? item.picture : item.previewImage
+    const meta = isDid ? truncate(pubkeyFromDid(item), 8, 6) : (item.id || '')
+    const badge = isDid
+      ? '<span class="dw-item-badge dw-badge-did">DID</span>'
+      : `<span class="dw-item-badge dw-badge-asset">${escHtml(item.status || 'Asset')}</span>`
+
+    html += `
+      <div class="dw-item" data-idx="${i}">
+        ${img
+          ? `<img class="dw-item-img" src="${escHtml(img)}" alt="${escHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="dw-item-placeholder" style="display:none"><span class="dw-item-placeholder-icon">${isDid ? '&#128100;' : '&#128196;'}</span></div>`
+          : `<div class="dw-item-placeholder"><span class="dw-item-placeholder-icon">${isDid ? '&#128100;' : '&#128196;'}</span></div>`
+        }
+        <div class="dw-item-body">
+          <div class="dw-item-name">${escHtml(name)}</div>
+          <div class="dw-item-meta" title="${escHtml(isDid ? pubkeyFromDid(item) : item.id)}">${escHtml(meta)}</div>
+          ${badge}
+          <div style="display:flex;gap:4px;margin-top:8px">
+            <button class="v-btn v-btn-sm v-btn-icon dw-edit-item" data-idx="${i}" title="Edit">&#9998;</button>
+            <button class="v-btn v-btn-sm v-btn-icon v-btn-danger dw-del-item" data-idx="${i}" title="Delete">&#10006;</button>
+            ${isDid ? `<a class="v-btn v-btn-sm v-btn-icon" href="https://njump.me/${escHtml(pubkeyFromDid(item))}" target="_blank" rel="noopener" title="Profile" style="text-decoration:none">&#8599;</a>` : ''}
+          </div>
+        </div>
+      </div>
+    `
+  }
+
+  html += `
+        <div class="dw-add" id="dw-add-card">
+          <span class="dw-add-icon">+</span>
+          <span class="dw-add-label">Add Item</span>
+        </div>
+      </div>
+    </div>
+  `
+
+  app.innerHTML = html
+
+  // Render modal if open
+  if (showModal) renderModal()
+
+  bindEvents()
+}
+
+function renderModal() {
+  const isEdit = editIndex !== null
+  const overlay = document.createElement('div')
+  overlay.className = 'dw-overlay'
+  overlay.id = 'dw-modal-overlay'
+  overlay.innerHTML = `
+    <div class="dw-modal">
+      <h3>${isEdit ? 'Edit Item' : 'Add Item'}</h3>
+      <div class="dw-type-toggle">
+        <button class="dw-type-opt ${itemType === 'did' ? 'active' : ''}" data-type="did">Nostr DID</button>
+        <button class="dw-type-opt ${itemType === 'asset' ? 'active' : ''}" data-type="asset">Asset / NFT</button>
+      </div>
+      <div class="dw-modal-field">
+        <div class="dw-modal-label">${itemType === 'did' ? 'Nostr Public Key' : 'Asset ID'}</div>
+        <input class="v-input" id="dw-form-id" placeholder="${itemType === 'did' ? 'Hex pubkey (without did:nostr: prefix)' : 'Unique asset identifier'}" value="${escHtml(formData.id)}" />
+        ${itemType === 'did' ? '<div class="v-help" style="margin-top:4px">The <code>did:nostr:</code> prefix is added automatically</div>' : ''}
+      </div>
+      <div class="dw-modal-field">
+        <div class="dw-modal-label">${itemType === 'did' ? 'Display Name' : 'Title'}</div>
+        <input class="v-input" id="dw-form-name" placeholder="${itemType === 'did' ? 'Name for this identity' : 'Asset name'}" value="${escHtml(formData.name)}" />
+      </div>
+      <div class="dw-modal-field">
+        <div class="dw-modal-label">${itemType === 'did' ? 'Picture URL' : 'Preview Image URL'}</div>
+        <input class="v-input" id="dw-form-picture" placeholder="https://..." value="${escHtml(formData.picture)}" />
+      </div>
+      <div class="dw-modal-actions">
+        <button class="v-btn" id="dw-modal-cancel">Cancel</button>
+        <button class="v-btn v-btn-primary" id="dw-modal-save">${isEdit ? 'Save Changes' : 'Add to Wallet'}</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+
+  // Bind modal events
+  overlay.querySelector('#dw-modal-cancel').onclick = () => { overlay.remove(); closeModal() }
+  overlay.onclick = e => { if (e.target === overlay) { overlay.remove(); closeModal() } }
+  overlay.querySelector('#dw-modal-save').onclick = () => {
+    formData.id = overlay.querySelector('#dw-form-id').value
+    formData.name = overlay.querySelector('#dw-form-name').value
+    formData.picture = overlay.querySelector('#dw-form-picture').value
+    overlay.remove()
+    saveItem()
+  }
+  overlay.querySelectorAll('.dw-type-opt').forEach(btn => {
+    btn.onclick = () => {
+      itemType = btn.dataset.type
+      // Preserve form data
+      formData.id = overlay.querySelector('#dw-form-id').value
+      formData.name = overlay.querySelector('#dw-form-name').value
+      formData.picture = overlay.querySelector('#dw-form-picture').value
+      overlay.remove()
+      showModal = true
+      render()
+    }
+  })
+
+  // Focus first input
+  setTimeout(() => overlay.querySelector('#dw-form-id')?.focus(), 50)
+}
+
+function bindEvents() {
+  const addBtn = document.getElementById('dw-add-btn')
+  if (addBtn) addBtn.onclick = openAddModal
+  const addCard = document.getElementById('dw-add-card')
+  if (addCard) addCard.onclick = openAddModal
+
+  document.getElementById('dw-edit-owner')?.addEventListener('click', editOwner)
+  document.getElementById('dw-export-btn')?.addEventListener('click', exportWallet)
+  document.getElementById('dw-import-btn')?.addEventListener('click', importWallet)
+
+  document.querySelectorAll('.dw-edit-item').forEach(btn => {
+    btn.onclick = e => { e.stopPropagation(); openEditModal(parseInt(btn.dataset.idx)) }
+  })
+  document.querySelectorAll('.dw-del-item').forEach(btn => {
+    btn.onclick = e => { e.stopPropagation(); deleteItem(parseInt(btn.dataset.idx)) }
+  })
+
+  // Click item card to edit
+  document.querySelectorAll('.dw-item[data-idx]').forEach(card => {
+    card.onclick = e => {
+      if (e.target.closest('.v-btn') || e.target.closest('a')) return
+      openEditModal(parseInt(card.dataset.idx))
+    }
+  })
+}
+
+// ── Init ────────────────────────────────────────────────
+
+loadWallet()
+
+  </script>
+</body>
+</html>
